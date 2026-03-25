@@ -42,7 +42,7 @@
 
 #### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/task-manager.git
+git clone https://github.com/thomas-tran-fullstack/Task_Manager.git
 cd task-manager
 ```
 
@@ -85,8 +85,8 @@ GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
-SMTP_PASSWORD=your_app_password
+SMTP_USER=thomastran.fullstack@gmail.com
+SMTP_PASSWORD=**** **** ****
 ```
 
 **Frontend (.env)**
@@ -624,10 +624,10 @@ Contributions are welcome! Please follow these steps:
 
 ## 📧 Support
 
-For support email: support@taskmanager.com
+For support email: thomastran.fullstack@gmail.com
 
 ---
 
 **Last Updated**: March 25, 2026
 **Version**: 1.0.0
-**Developer**: Your Name
+**Developer**: Tran Bao Toan
