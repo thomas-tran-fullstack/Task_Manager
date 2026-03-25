@@ -1,6 +1,7 @@
 import React from 'react'
 import { useTasks } from '@/hooks/useTasks'
 import { TrendingUp, Zap, AlertCircle, CheckCircle } from 'lucide-react'
+import Navbar from '@/components/Common/Navbar'
 
 const DashboardPage = () => {
   const { statistics } = useTasks()
@@ -10,8 +11,10 @@ const DashboardPage = () => {
     : 0
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Navbar />
+      <div className="p-8">
+        <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8 animate-slideInDown">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
@@ -101,6 +104,7 @@ const DashboardPage = () => {
               <p className="text-3xl font-bold text-gray-900 mt-1">{statistics.overdueTasks}</p>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

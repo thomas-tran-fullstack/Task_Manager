@@ -1,5 +1,6 @@
 import React, { createContext, useState, useCallback, useEffect } from 'react'
 import { useToast } from '@/hooks/useToast'
+import { taskService } from '@/services/taskService'
 
 export const TaskContext = createContext()
 
@@ -20,65 +21,121 @@ export const TaskProvider = ({ children }) => {
   })
   const { showMessage } = useToast()
 
-  // Load tasks from localStorage on mount
+  // Load tasks from API on mount
   useEffect(() => {
-    const savedTasks = localStorage.getItem('tasks')
-    if (savedTasks) {
-      try {
-        setTasks(JSON.parse(savedTasks))
-      } catch (error) {
-        console.error('Failed to load tasks from storage:', error)
+    fetchTasks()
+    fetchStatistics()
+  }, [])
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const response = await taskService.getAllTasks(filters)
+      if (response.success) {
+        setTasks(response.tasks || [])
       }
+    } catch (error) {
+      console.error('Failed to load tasks:', error)
+      showMessage('Failed to load tasks', 'error')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [filters, showMessage])
+
+  const fetchStatistics = useCallback(async () => {
+    try {
+      const response = await taskService.getStatistics()
+      if (response.success) {
+        setStatistics(response.statistics || {
+          totalTasks: 0,
+          completedTasks: 0,
+          overdueTasks: 0,
+          inProgressTasks: 0
+        })
+      }
+    } catch (error) {
+      console.error('Failed to load statistics:', error)
     }
   }, [])
 
-  // Update localStorage whenever tasks change
-  useEffect(() => {
-    localStorage.setItem('tasks', JSON.stringify(tasks))
-    updateStatistics()
-  }, [tasks])
-
-  const updateStatistics = useCallback(() => {
-    const stats = {
-      totalTasks: tasks.length,
-      completedTasks: tasks.filter(t => t.status === 'Done').length,
-      overdueTasks: tasks.filter(t => {
-        if (t.status === 'Done') return false
-        if (!t.deadline) return false
-        return new Date(t.deadline) < new Date()
-      }).length,
-      inProgressTasks: tasks.filter(t => t.status === 'In Progress').length
+  const addTask = useCallback(async (taskData) => {
+    try {
+      setIsLoading(true)
+      const response = await taskService.createTask(taskData)
+      if (response.success) {
+        setTasks(prev => [...prev, response.task])
+        showMessage('Task created successfully', 'success')
+        await fetchStatistics()
+        return response.task
+      } else {
+        showMessage(response.message || 'Failed to create task', 'error')
+      }
+    } catch (error) {
+      showMessage(error.message || 'Failed to create task', 'error')
+      console.error('Create task error:', error)
+    } finally {
+      setIsLoading(false)
     }
-    setStatistics(stats)
-  }, [tasks])
+  }, [showMessage, fetchStatistics])
 
-  const addTask = useCallback((taskData) => {
-    const newTask = {
-      id: Date.now(),
-      ...taskData,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+  const updateTask = useCallback(async (id, updates) => {
+    try {
+      setIsLoading(true)
+      const response = await taskService.updateTask(id, updates)
+      if (response.success) {
+        setTasks(prev =>
+          prev.map(task =>
+            task.id === id
+              ? { ...task, ...updates }
+              : task
+          )
+        )
+        showMessage('Task updated successfully', 'success')
+        await fetchStatistics()
+      } else {
+        showMessage(response.message || 'Failed to update task', 'error')
+      }
+    } catch (error) {
+      showMessage(error.message || 'Failed to update task', 'error')
+      console.error('Update task error:', error)
+    } finally {
+      setIsLoading(false)
     }
-    setTasks(prev => [...prev, newTask])
-    showMessage('Task created successfully', 'success')
-    return newTask
-  }, [showMessage])
+  }, [showMessage, fetchStatistics])
 
-  const updateTask = useCallback((id, updates) => {
-    setTasks(prev =>
-      prev.map(task =>
-        task.id === id
-          ? { ...task, ...updates, updatedAt: new Date().toISOString() }
-          : task
-      )
-    )
-    showMessage('Task updated successfully', 'success')
-  }, [showMessage])
+  const updateTaskStatus = useCallback(async (id, status) => {
+    try {
+      const response = await taskService.updateTaskStatus(id, status)
+      if (response.success) {
+        setTasks(prev =>
+          prev.map(task =>
+            task.id === id
+              ? { ...task, status }
+              : task
+          )
+        )
+        showMessage('Task status updated', 'success')
+        await fetchStatistics()
+      }
+    } catch (error) {
+      showMessage(error.message || 'Failed to update task status', 'error')
+    }
+  }, [showMessage, fetchStatistics])
 
-  const deleteTask = useCallback((id) => {
-    setTasks(prev => prev.filter(task => task.id !== id))
-    showMessage('Task deleted successfully', 'success')
-  }, [showMessage])
+  const deleteTask = useCallback(async (id) => {
+    try {
+      const response = await taskService.deleteTask(id)
+      if (response.success) {
+        setTasks(prev => prev.filter(task => task.id !== id))
+        showMessage('Task deleted successfully', 'success')
+        await fetchStatistics()
+      } else {
+        showMessage(response.message || 'Failed to delete task', 'error')
+      }
+    } catch (error) {
+      showMessage(error.message || 'Failed to delete task', 'error')
+    }
+  }, [showMessage, fetchStatistics])
 
   const getFilteredTasks = useCallback(() => {
     return tasks.filter(task => {
@@ -86,28 +143,9 @@ export const TaskProvider = ({ children }) => {
       if (filters.priority && task.priority !== filters.priority) return false
       if (filters.search) {
         const searchLower = filters.search.toLowerCase()
-        if (!task.title.toLowerCase().includes(searchLower) &&
+        if (!task.title?.toLowerCase().includes(searchLower) &&
             !task.description?.toLowerCase().includes(searchLower)) {
           return false
-        }
-      }
-      if (filters.deadline) {
-        const now = new Date()
-        const taskDate = new Date(task.deadline)
-        
-        switch (filters.deadline) {
-          case 'today':
-            if (taskDate.toDateString() !== now.toDateString()) return false
-            break
-          case 'week':
-            const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-            if (taskDate > weekFromNow) return false
-            break
-          case 'overdue':
-            if (taskDate >= now || task.status === 'Done') return false
-            break
-          default:
-            break
         }
       }
       return true
@@ -134,10 +172,13 @@ export const TaskProvider = ({ children }) => {
     statistics,
     addTask,
     updateTask,
+    updateTaskStatus,
     deleteTask,
     getFilteredTasks,
     updateFilters,
-    resetFilters
+    resetFilters,
+    fetchTasks,
+    fetchStatistics
   }
 
   return (
@@ -146,3 +187,4 @@ export const TaskProvider = ({ children }) => {
     </TaskContext.Provider>
   )
 }
+

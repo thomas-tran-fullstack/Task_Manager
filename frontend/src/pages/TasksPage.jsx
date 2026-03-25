@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
 import { useTasks } from '@/hooks/useTasks'
 import { Plus, Search, Filter, X } from 'lucide-react'
+import Navbar from '@/components/Common/Navbar'
 
 const TasksPage = () => {
-  const { tasks, filters, addTask, updateTask, deleteTask, updateFilters, resetFilters, getFilteredTasks } = useTasks()
+  const { tasks, filters, addTask, deleteTask, updateTaskStatus, updateFilters, resetFilters, getFilteredTasks, isLoading } = useTasks()
   const [showAddForm, setShowAddForm] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -15,10 +17,19 @@ const TasksPage = () => {
 
   const filteredTasks = getFilteredTasks()
 
-  const handleAddTask = (e) => {
+  const handleAddTask = async (e) => {
     e.preventDefault()
-    if (formData.title.trim()) {
-      addTask(formData)
+    if (!formData.title.trim()) {
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const taskData = {
+        ...formData,
+        deadline: formData.deadline || null
+      }
+      await addTask(taskData)
       setFormData({
         title: '',
         description: '',
@@ -27,6 +38,18 @@ const TasksPage = () => {
         status: 'TODO'
       })
       setShowAddForm(false)
+    } catch (error) {
+      console.error('Error adding task:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleStatusChange = async (taskId, newStatus) => {
+    try {
+      await updateTaskStatus(taskId, newStatus)
+    } catch (error) {
+      console.error('Error updating task status:', error)
     }
   }
 
@@ -37,8 +60,10 @@ const TasksPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Navbar />
+      <div className="p-8">
+        <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8 flex justify-between items-center animate-slideInDown">
           <div>
@@ -167,9 +192,10 @@ const TasksPage = () => {
               <div className="flex gap-3">
                 <button
                   type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
+                  disabled={isSubmitting}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-70"
                 >
-                  Create Task
+                  {isSubmitting ? 'Creating...' : 'Create Task'}
                 </button>
                 <button
                   type="button"
@@ -206,6 +232,7 @@ const TasksPage = () => {
                         <button
                           onClick={() => deleteTask(task.id)}
                           className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Delete task"
                         >
                           <X className="w-5 h-5 text-red-600 hover:text-red-700" />
                         </button>
@@ -241,6 +268,7 @@ const TasksPage = () => {
               </div>
             </div>
           ))}
+        </div>
         </div>
       </div>
     </div>
